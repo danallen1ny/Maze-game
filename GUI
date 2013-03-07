@@ -1,0 +1,637 @@
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+import javax.swing.event.*;
+import javax.swing.filechooser.FileFilter;
+import java.awt.image.BufferedImage;
+import java.util.*;
+import java.io.*;
+
+public class GUI {
+   final int MAX_WIDTH = 60; //maximum width of maze, in cells
+   final int MAX_HEIGHT = 44; //maximum height of maze, in cells
+   final int MIN_WIDTH = 2; //minimum width of maze, in cells
+   final int MIN_HEIGHT = 2; //minimum width of maze, in cells
+   final int DEFAULT_WIDTH = 36; //default width of maze, in cells
+   final int DEFAULT_HEIGHT = 24; //default width of maze, in cells
+   final int CELL_SIZE = 20; //width and height of a cell, in pixels
+   final int MARGIN = CELL_SIZE; //margin between the maze and the containing window, in pixels
+   final int THICKNESS = 2; //thickness of maze lines, in pixels
+   
+    private Color walls = Color.black;
+  private Color background = Color.white;
+	private Color solution = Color.gray;
+
+
+   JMenu actMenu;
+   JLabel labeler;
+   JFrame frame; //main frame
+   JPanel canvas = new MazePanel(); //the component containing the actual maze
+   private int height = DEFAULT_HEIGHT;
+   private int width = DEFAULT_WIDTH;
+   Hashtable<ButtonModel,CreateMethod> createMethod = new Hashtable<ButtonModel,CreateMethod>();
+   ButtonGroup methodGroup;
+   ButtonGroup colorGroup;
+   Maze client;
+   java.util.Stack<Pair> pathStack = new java.util.Stack<Pair>();
+   
+   //initialize user interface
+   GUI(final Maze client) {
+      this.client = client;
+      frame = new JFrame("CS211 Mazes"); //main window
+      frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+      
+      //create menu bar
+      JMenuBar menuBar = new JMenuBar();
+      
+      //file menu
+      final JMenu fileMenu = new JMenu("File");  
+      
+      JMenuItem item = new JMenuItem("New");
+      item.addActionListener(new ActionListener() {
+         public void actionPerformed(ActionEvent e) {
+            client.createMaze(width, height, createMethod.get(methodGroup.getSelection()));
+            pathStack.removeAllElements();
+            pack(); //compute new window dimensions
+            canvas.repaint();
+            actMenu.setEnabled(true);
+			 clearMessage();
+         }
+      });
+      fileMenu.add(item);
+      
+      fileMenu.addSeparator();
+      
+      item = new JMenuItem("Quit");
+      item.addActionListener(new ActionListener() {
+         public void actionPerformed(ActionEvent e) {
+            System.exit(0);
+         }
+      });
+      fileMenu.add(item);
+      menuBar.add(fileMenu);
+      
+//?  where is setEnabled(false) to go?
+      
+      actMenu = new JMenu("Action");
+      actMenu.setEnabled(false);
+      
+      JMenuItem item1 = new JMenuItem("Clear");
+      item1.addActionListener(new ActionListener() {
+        public void actionPerformed(ActionEvent e) { 
+          pathStack.clear();
+          canvas.repaint();
+        }
+      });
+      actMenu.add(item1);
+      
+      JMenuItem item2 = new JMenuItem("Solve");
+      item2.addActionListener(new ActionListener() {
+        public void actionPerformed(ActionEvent e) { 
+          client.solve(pathStack);
+          canvas.repaint();
+        }
+      });
+      actMenu.add(item2);
+      menuBar.add(actMenu);
+      
+      JMenuItem item5 = new JMenuItem("Hint");
+      item5.addActionListener(new ActionListener() {
+		  public void actionPerformed(ActionEvent e) 
+		  { 
+          
+			  java.util.Stack<Pair> solvedStack = new java.util.Stack<Pair>();
+				  client.solve(solvedStack);
+         
+		//	  if(!(pathStack.peek().equals(new Pair(height-1, width-1))))
+			  
+				  int index = 0;
+				  System.out.println(pathStack.isEmpty());
+				  if(!(pathStack.isEmpty()))
+				  {
+					  while(index < pathStack.size() && pathStack.elementAt(index).equals(solvedStack.elementAt(index)))
+					  {index++;}
+					  System.out.println(index);
+					  for(int counter = index; counter < pathStack.size(); counter = counter)
+					  {pathStack.removeElementAt(counter);}
+				  }
+          
+				  int sizeFraction = (solvedStack.size()/10) + index;
+				  if(sizeFraction == 0)
+				  {sizeFraction = 1;}
+				  for(int counter = index; (counter < sizeFraction) && (counter < solvedStack.size()); counter++)
+				  {pathStack.add(solvedStack.elementAt(counter));}
+            
+          
+			  
+			  canvas.repaint();
+		  }
+      });
+      actMenu.add(item5);
+      menuBar.add(actMenu);
+      
+      
+      
+      //options menu
+      JMenu optionsMenu = new JMenu("Options");
+      
+      //menu for choosing between different graph creation methods      
+      JMenu methodMenu = new JMenu("Method");
+      methodGroup = new ButtonGroup();
+      item = new JRadioButtonMenuItem("DFS");
+      createMethod.put(item.getModel(),CreateMethod.DFS);
+      item.setSelected(true);
+      methodGroup.add(item);
+      methodMenu.add(item);
+      item = new JRadioButtonMenuItem("BFS");
+      createMethod.put(item.getModel(),CreateMethod.BFS);
+      methodGroup.add(item);
+      methodMenu.add(item);
+      item = new JRadioButtonMenuItem("MST");
+      createMethod.put(item.getModel(),CreateMethod.MST);
+      methodGroup.add(item);
+      methodMenu.add(item);
+      item = new JRadioButtonMenuItem("Hybrid");
+      createMethod.put(item.getModel(),CreateMethod.HYBRID);
+      methodGroup.add(item);
+      methodMenu.add(item);
+      optionsMenu.add(methodMenu);
+          
+      item = new JMenuItem("Size...");
+      item.addActionListener(new ActionListener() {
+         public void actionPerformed(ActionEvent e) {
+            final JDialog sizeDialog = new JDialog(frame,"Select size");
+            sizeDialog.setLayout(new BoxLayout(sizeDialog.getContentPane(), BoxLayout.Y_AXIS));
+            sizeDialog.addWindowListener(new WindowAdapter() {
+               public void windowClosing(WindowEvent event) {
+                  sizeDialog.dispose();
+               }
+            });
+            
+            //your code here to add the labels, spinners, and buttons
+            
+            JLabel widthLabel = new JLabel("Width");
+            widthLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            final JSpinner widthChoice = new JSpinner(new SpinnerNumberModel(width, MIN_WIDTH, MAX_WIDTH, 2));
+            sizeDialog.add(widthLabel);
+            sizeDialog.add(widthChoice);            
+            
+            JLabel heightLabel = new JLabel("Height");
+            heightLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            final JSpinner heightChoice = new JSpinner(new SpinnerNumberModel(height, MIN_HEIGHT, MAX_HEIGHT, 2));
+            
+            sizeDialog.add(heightLabel);
+            sizeDialog.add(heightChoice);
+            
+            JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+            JButton ok = new JButton ("OK");
+            ok.addActionListener(new ActionListener() {
+               public void actionPerformed(ActionEvent e) { 
+
+				   try
+				   {
+					   widthChoice.commitEdit();
+				   }
+catch (java.text.ParseException pe){
+		 widthChoice.setValue(width);
+     }
+                width = (Integer)widthChoice.getValue();
+
+				   try
+				   {
+					   heightChoice.commitEdit();
+				   }
+				   catch (java.text.ParseException pe)
+				   {
+					   heightChoice.setValue(height);
+					   }
+	 
+
+
+                height = (Integer)heightChoice.getValue();
+                pathStack.removeAllElements();
+				if (client.deletedEdges() != null)
+					client.deletedEdges().removeAllElements();
+                pack();
+                canvas.repaint();
+                sizeDialog.dispose();
+            }
+           });
+           panel.add(ok);
+           
+           JButton cancel = new JButton ("Cancel");
+            cancel.addActionListener(new ActionListener() {
+               public void actionPerformed(ActionEvent e) { 
+                
+                sizeDialog.dispose();
+            }
+           });
+           panel.add(cancel);                        
+           sizeDialog.add(panel);                        
+                                   
+            sizeDialog.setLocation(300,300);
+            sizeDialog.pack();
+            sizeDialog.setVisible(true);
+         }
+      });
+      optionsMenu.add(item);
+      menuBar.add(optionsMenu);
+      
+      
+      JMenu colorMenu = new JMenu("Color");
+      colorGroup = new ButtonGroup();
+
+      Image image = new BufferedImage(12,12,BufferedImage.TYPE_INT_RGB);
+	  Graphics graphics = image.getGraphics();
+
+	  graphics.setColor(Color.RED);
+      graphics.fillRect(0,0,12,12);
+      graphics.setColor(Color.blue);
+      graphics.fillRect(0,5,12,2);
+	  graphics.fillRect(5,0,2,12);
+
+	  ImageIcon imageicon = new ImageIcon(image);
+      JRadioButtonMenuItem coloritem = new JRadioButtonMenuItem("red, blue");	
+      coloritem.setIcon(imageicon);
+
+      
+		 coloritem.addActionListener(new ActionListener() 
+		{
+			 public void actionPerformed(ActionEvent e) 
+			{ 
+				 background = Color.red;
+				 walls = Color.blue;
+				 solution = Color.orange;
+				 canvas.repaint();
+				}
+		});
+
+	  colorGroup.add(coloritem);
+	  colorMenu.add(coloritem);
+
+
+
+      image = new BufferedImage(12,12,BufferedImage.TYPE_INT_RGB);
+	  graphics = image.getGraphics();
+
+	  graphics.setColor(Color.green);
+      graphics.fillRect(0,0,12,12);
+      graphics.setColor(Color.magenta);
+      graphics.fillRect(0,5,12,2);
+	  graphics.fillRect(5,0,2,12);
+
+	  imageicon = new ImageIcon(image);
+
+
+	  coloritem = new JRadioButtonMenuItem("green, magenta");
+      coloritem.setIcon(imageicon);
+       coloritem.addActionListener(new ActionListener() 
+		{
+			 public void actionPerformed(ActionEvent e) 
+			{ 
+				 background = Color.green;
+				 walls = Color.magenta;
+				 solution = Color.cyan;
+				 canvas.repaint();
+				}
+		});
+      
+	  colorGroup.add(coloritem);
+	  colorMenu.add(coloritem);
+
+
+
+      image = new BufferedImage(12,12,BufferedImage.TYPE_INT_RGB);
+	  graphics = image.getGraphics();
+
+	  graphics.setColor(Color.white);
+      graphics.fillRect(0,0,12,12);
+      graphics.setColor(Color.black);
+      graphics.fillRect(0,5,12,2);
+	  graphics.fillRect(5,0,2,12);
+
+	  imageicon = new ImageIcon(image);
+
+      coloritem = new JRadioButtonMenuItem("white, black");
+	 coloritem.setIcon(imageicon);
+       coloritem.addActionListener(new ActionListener() 
+		{
+			 public void actionPerformed(ActionEvent e) 
+			{ 
+				 background = Color.white;
+				 walls = Color.black;
+				 solution = Color.gray;
+				 canvas.repaint();
+				}
+		});
+      
+	  colorGroup.add(coloritem);
+	  colorMenu.add(coloritem);
+
+
+
+      image = new BufferedImage(12,12,BufferedImage.TYPE_INT_RGB);
+	  graphics = image.getGraphics();
+
+	  graphics.setColor(Color.pink);
+      graphics.fillRect(0,0,12,12);
+      graphics.setColor(Color.yellow);
+      graphics.fillRect(0,5,12,2);
+	  graphics.fillRect(5,0,2,12);
+
+	  imageicon = new ImageIcon(image);
+
+
+     coloritem = new JRadioButtonMenuItem("pink, yellow");
+      coloritem.setIcon(imageicon);
+       coloritem.addActionListener(new ActionListener() 
+		{
+			 public void actionPerformed(ActionEvent e) 
+			{ 
+				 background = Color.pink;
+				 walls = Color.yellow;
+				 solution = Color.lightGray;
+				 canvas.repaint();
+				}
+		});
+      
+	  colorGroup.add(coloritem);
+	  colorMenu.add(coloritem);
+
+
+/*							 
+    background = JColorChooser.showDialog(
+					frame,
+					"Choose Background Color",
+					Color.white);
+  if (background != null) 
+		  {
+		  canvas.setBackground(background);
+		  }
+
+
+  walls = JColorChooser.showDialog(
+					frame,
+					"Choose Wall Color",
+					Color.white);
+  if (walls != null) {
+       canvas.setBackground(walls); 
+       }
+
+ solution  = JColorChooser.showDialog(
+					frame,
+					"Choose solution path Color",
+					Color.white);
+ if (solution != null) {
+    canvas.setBackground(solution);
+     }
+*/
+
+	image = new BufferedImage(12,12,BufferedImage.TYPE_INT_RGB);
+	graphics = image.getGraphics();
+
+	  graphics.setColor(background);
+      graphics.fillRect(0,0,12,12);
+      graphics.setColor(walls);
+      graphics.fillRect(0,5,12,2);
+	  graphics.fillRect(5,0,2,12);
+
+	  imageicon = new ImageIcon(image);
+
+
+    coloritem = new JRadioButtonMenuItem("your color");
+      coloritem.setIcon(imageicon);
+       coloritem.addActionListener(new ActionListener() 
+		{
+			 public void actionPerformed(ActionEvent e) 
+			{ 
+
+				 background = JColorChooser.showDialog(
+					 frame,
+					 "Choose Background Color",
+					 Color.white);
+				 if (background != null) 
+				 {
+					 canvas.setBackground(background);
+				 }
+
+
+				 walls = JColorChooser.showDialog(
+					 frame,
+					 "Choose Wall Color",
+					 Color.white);
+				 if (walls != null) 
+				 {
+					 canvas.setBackground(walls); 
+				 }
+
+				 solution  = JColorChooser.showDialog(
+					 frame,
+					 "Choose solution path Color",
+					 Color.white);
+				 if (solution != null) 
+				 {
+					 canvas.setBackground(solution);
+				 }
+
+				
+
+
+
+				 background = background;
+				 walls = walls;
+				 solution = solution;
+				 canvas.repaint();
+				}
+		});
+      
+      coloritem.setIcon(imageicon);
+	  colorGroup.add(coloritem);
+	  colorMenu.add(coloritem);
+
+
+
+      optionsMenu.add(colorMenu);
+
+
+      
+       JMenu helpMenu = new JMenu("Help");
+     
+      JMenuItem item3 = new JMenuItem("Help...");
+      item3.addActionListener(new ActionListener() {
+        public void actionPerformed(ActionEvent e) { 
+         
+         JOptionPane.showMessageDialog(frame, "what the f");
+         
+        }
+      });
+      helpMenu.add(item3);
+     
+     
+      JMenuItem item4 = new JMenuItem("About...");
+      item4.addActionListener(new ActionListener() {
+        public void actionPerformed(ActionEvent e) { 
+         
+         JOptionPane.showMessageDialog(frame, "last cs class ever");
+         
+        }
+      });
+      helpMenu.add(item4);
+      menuBar.add(helpMenu);
+      
+      
+      
+      frame.setJMenuBar(menuBar);
+      
+      labeler = new JLabel();
+      //create canvas
+      frame.add(canvas,BorderLayout.CENTER);
+      frame.add(labeler,BorderLayout.SOUTH);
+      
+      //your code here to create message area and add it to the frame
+    //  clearMessage();
+      
+      //display the window
+      pack();
+      frame.setLocation(200,200);
+      frame.setVisible(true);
+   }
+   
+   void message(String s) {
+      labeler.setText(s);
+   }
+   
+   void clearMessage() {
+      message(" ");
+   }
+   
+   //calculate window dimensions based on maze dimensions
+   private void pack() {
+      //your code here to calculate the size of the canvas based on the size of the current maze
+     int hsize = (height * CELL_SIZE) + 2*MARGIN + THICKNESS;
+     int wsize = (width * CELL_SIZE) + 2*MARGIN + THICKNESS;
+      canvas.setPreferredSize(new Dimension(wsize,hsize));
+      canvas.setSize(canvas.getPreferredSize());
+      frame.pack();
+   }
+   
+   class MazePanel extends JPanel implements MouseMotionListener, MouseListener {
+     
+     int coordx = -1;
+     int coordy = -1;     
+ 
+     MazePanel() {
+         addMouseMotionListener(this);
+         addMouseListener(this);
+      }
+      
+      public void paint(Graphics graphics) {
+        int indent = MARGIN + THICKNESS;
+                
+        graphics.setColor(background);
+        graphics.fillRect(0,0,getSize().width,getSize().height); 
+        
+        graphics.setColor(solution);
+        if (pathStack != null)
+        {for(Pair p: pathStack)
+            {graphics.fillRect((p.x*CELL_SIZE)+indent,(p.y*CELL_SIZE)+indent,CELL_SIZE,CELL_SIZE);}
+        }
+        
+        graphics.setColor(walls);
+        if(client.deletedEdges() != null)
+        {for(GridEdge g: client.deletedEdges())
+          {
+          if(g.horizontal == true)
+            {graphics.fillRect((g.x*CELL_SIZE)+CELL_SIZE+indent,(g.y*CELL_SIZE)+indent,THICKNESS,CELL_SIZE + THICKNESS);}
+          else if(g.horizontal == false)
+            {graphics.fillRect((g.x*CELL_SIZE)+indent,(g.y*CELL_SIZE)+CELL_SIZE+indent,CELL_SIZE + THICKNESS,THICKNESS);}
+          }
+        }
+
+        graphics.fillRect(MARGIN,MARGIN,width*CELL_SIZE + THICKNESS,THICKNESS);
+        graphics.fillRect((width+1)*CELL_SIZE + THICKNESS,MARGIN,THICKNESS,(height-1)*CELL_SIZE + THICKNESS);
+        graphics.fillRect(MARGIN,(height+1)*CELL_SIZE + THICKNESS,width*CELL_SIZE + THICKNESS,THICKNESS);
+        graphics.fillRect(MARGIN,MARGIN+CELL_SIZE + THICKNESS,THICKNESS,(height-1)*CELL_SIZE + THICKNESS);
+      }
+      
+      public void mouseMoved(MouseEvent e) {
+                     
+        int indent = MARGIN+THICKNESS;
+       
+       if(e.getX() > indent && e.getX() < (getSize().width-indent) &&
+          e.getY() > indent && e.getY() < (getSize().height-indent))
+          {coordx = (e.getX()-MARGIN)/CELL_SIZE;
+           coordy = (e.getY()-MARGIN)/CELL_SIZE; 
+          }
+          
+          else{canvas.repaint();}
+        
+          
+          
+         //your code here to calculate the maze cell that the mouse cursor is in
+         //make sure you handle the case when the cursor is outside the maze
+      }
+      
+      public void mouseDragged(MouseEvent e) {
+         mouseMoved(e);
+
+         if(pathStack.size() == 0)
+           {if (coordx == 0 && coordy == 0)
+                {pathStack.push(new Pair(0,0));}
+			 return;
+           }
+         
+         if((Math.abs((pathStack.peek()).x - coordx) == 1) && 
+            (Math.abs((pathStack.peek()).y - coordy) == 0))
+            {
+             if(!(pathStack.contains(new Pair(coordx, coordy))))
+                {if(client.takenEdges().contains(new GridEdge(Math.min((pathStack.peek()).x,coordx),coordy,true)))
+                    {pathStack.push(new Pair(coordx, coordy));
+                     canvas.repaint();}
+                }
+            }
+         
+         if((Math.abs((pathStack.peek()).y - coordy) == 1) && 
+            (Math.abs((pathStack.peek()).x - coordx) == 0))
+            {
+             if(!(pathStack.contains(new Pair(coordx, coordy))))
+                {if(client.takenEdges().contains(new GridEdge(coordx,Math.min((pathStack.peek()).y,coordy),false)))
+                    {pathStack.push(new Pair(coordx, coordy));
+                     canvas.repaint();}
+                }
+            }        
+      
+            
+            
+
+
+
+   if(pathStack.peek().equals(new Pair(width-1, height-1)))
+           {
+	   message("Congratulations");
+   canvas.repaint();}
+
+}
+         
+         //your code here to check if should update the pathStack
+      
+      
+      public void mousePressed(MouseEvent e) { mouseDragged(e); }
+      public void mouseReleased(MouseEvent e) {}
+      public void mouseEntered(MouseEvent e) {}
+      public void mouseExited(MouseEvent e) {}
+      
+      public void mouseClicked(MouseEvent e) {
+      
+        if(pathStack.contains(new Pair(coordx, coordy)))
+        {
+         Pair find = pathStack.pop();
+         while(!(find.equals(new Pair(coordx, coordy))))
+              {find = pathStack.pop();} 
+        }
+      
+      
+      }
+   }
+
+}
