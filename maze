@@ -1,0 +1,121 @@
+import javax.swing.UIManager;
+import java.util.*;
+import java.io.*;
+
+enum CreateMethod { DFS, BFS, MST, HYBRID }
+
+class Maze implements MazeCreator {
+   GUI gui;
+   MazeCreator creator;
+   
+   Maze() {
+      gui = new GUI(this);
+   }
+   
+   public static void main(String[] args) {
+      try {
+         UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+      } catch (Exception e) {}
+      new Maze();
+   }
+   
+   void createMaze(int width, int height, CreateMethod c) {
+      switch (c) {
+         case MST: //spanning tree
+            creator = new MST(width, height);
+            break;
+         default: //DFS, BFS, HYBRID
+            creator = new DFS(width, height, c);
+            break;
+      }
+   }
+   
+   public boolean isSol(java.util.Stack<Pair> s)
+   {
+    if((s.peek()).equals(new Pair(width()-1, height()-1)))
+       {return true;}
+    if((s.peek()).equals(new Pair(0,0))) 
+       {if(creator.takenEdges().contains(new GridEdge(0, 0, 0, 1)))
+             {
+              s.push(new Pair(0,1));
+              if(isSol(s)){return true;}
+  			 s.pop();
+             }
+        if(creator.takenEdges().contains(new GridEdge(0, 0, 1, 0)))
+             {
+              s.push(new Pair(1,0));
+              if(isSol(s)){return true;}
+				s.pop();
+             }
+        }
+    else
+       {
+     Pair current = s.pop();
+//	System.out.println("X: " + current.x + " Y: " + current.y);
+     Pair last = s.peek();
+     s.push(current);
+     
+     GridEdge lastone = new GridEdge(last.x, last.y, current.x, current.y);
+        GridEdge left = new GridEdge(current.x, current.y, (current.x)-1, current.y);
+        GridEdge down = new GridEdge(current.x, current.y, current.x, (current.y)+1);
+     GridEdge right = new GridEdge(current.x, current.y, (current.x)+1, current.y);
+     GridEdge up = new GridEdge(current.x, current.y, current.x, (current.y)-1);
+     
+     
+     
+     if(!(lastone.equals(left)) && creator.takenEdges().contains(left))
+     {
+      s.push(new Pair((current.x)-1, current.y));
+      if(isSol(s)) {return true;}
+	s.pop();
+     }
+     
+     if(!(lastone.equals(down)) && creator.takenEdges().contains(down))
+     {
+      s.push(new Pair(current.x, (current.y)+1));
+      if(isSol(s)) {return true;}
+	s.pop();
+     }
+          
+     if(!(lastone.equals(right)) && creator.takenEdges().contains(right))
+     {
+      s.push(new Pair((current.x)+1, current.y));
+      if(isSol(s)) {return true;}
+	s.pop();
+     }
+     
+     if(!(lastone.equals(up)) && creator.takenEdges().contains(up))
+     {
+      s.push(new Pair(current.x, (current.y)-1));
+      if(isSol(s)) {return true;}
+	s.pop();
+     }
+       } 
+    return false;          
+  }
+   
+   
+   java.util.Stack<Pair> solve(java.util.Stack<Pair> s) {
+      s.push(new Pair(0,0));
+      if(isSol(s)) {return s;}
+      else {return s;}
+       
+   }
+   
+   public int width() {
+      if (creator == null) return gui.DEFAULT_WIDTH;
+      return creator.width();
+   }
+   public int height() {
+      if (creator == null) return gui.DEFAULT_HEIGHT;
+      return creator.height();
+   }
+   public Vector<GridEdge> takenEdges() {
+      if (creator == null) return null;
+      return creator.takenEdges();
+   }
+   public Vector<GridEdge> deletedEdges() {
+      if (creator == null) return null;
+      return creator.deletedEdges();
+   }   
+}
